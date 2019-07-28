@@ -19,5 +19,5 @@
 
 (defn -main
   [& args]
-  (println accuracy))
+  (println "Accuracy: " accuracy))
 

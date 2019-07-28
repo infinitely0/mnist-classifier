@@ -1,7 +1,8 @@
 (ns mnist-classifier.util
   (:require [clojure.java.io :as io]
             [clojure-csv.core :as csv]
-            [clojure.core.matrix :as m]))
+            [clojure.core.matrix :as m])
+  (:import org.ejml.simple.SimpleMatrix))
 
 (defn to-int-array
   "Converts an array of strings to an array of integers."
@@ -42,16 +43,74 @@
   [x y]
   (m/emap inc (m/zero-matrix x y)))
 
+(defn one-sm-matrix
+  "Returns a SimpleMatrix of given dimensions, filled with ones"
+  [x y]
+  (let [ones (SimpleMatrix. x y)]
+    (.fill ones 1)
+    ones))
+
+(defn to-simple-matrix
+  "Converts a core.matrix matrix/vector to an EJML SimpleMatrix.
+  If c-matrix is vector, the SimpleMatrix returned will be a 1 x n matrix."
+  [c-matrix]
+  (def s-matrix
+    (if (m/matrix? c-matrix)
+       (SimpleMatrix. (first (m/shape c-matrix))
+                      (second (m/shape c-matrix)))
+       (SimpleMatrix. 1 (first (m/shape c-matrix)))))
+
+  (doseq [x (range (.numRows s-matrix))
+          y (range (.numCols s-matrix))]
+    (.set s-matrix x y (m/select c-matrix x y)))
+  s-matrix)
+
+(defn to-core-matrix
+  "Converts an EJML SimpleMatrix to a core.matrix matrix."
+  [s-matrix]
+  (def c-matrix (m/zero-matrix (.numRows s-matrix)
+                               (.numCols s-matrix)))
+
+  (reduce (fn [mat [x y]]
+           (m/mset mat x y (.get s-matrix x y)))
+        c-matrix
+        (for [x (range (.numRows s-matrix))
+              y (range (.numCols s-matrix))]
+             [x y])))
+
+(defn drop-first-column
+  "Returns a new SimpleMatrix without the first column."
+  [sm]
+  (.extractMatrix sm
+                  0 (.numRows sm)
+                  1 (.numCols sm)))
+
+(defn take-first-column
+  "Returns a new SimpleMatrix made from the first column of the input matrix."
+  [sm]
+  (.extractMatrix sm
+                  0 (.numRows sm)
+                  0 1))
 
 (defn class-vector
-  "Turns each element i in y into a zero-filled vector with element i set to 1."
+  "Turns each integer i in vector y into a zero-filled vector with element i
+  set to 1 so that 3 becomes [0 0 0 1 0 0 0 0 0 0 0 ]"
   [y]
   (map #(m/set-row (m/zero-vector 10) % 1) y))
+
+(defn sigmoid
+  "Calculates logistic function for every element in SimpleMatrix"
+  [m]
+  (let [exp (.elementExp m)]
+    (.elementDiv exp (.plus exp 1.0))))
 
 (defn sigmoid-prime
   "Calculates the derivative of the logistic function for every element."
   [m]
-  (m/emul (m/logistic m) (m/sub 1 (m/logistic m))))
+  (let [sig (sigmoid m)
+        ones (.createLike m)]
+    (.fill ones 1)
+    (.elementMult sig (.minus ones sig))))
 
 (defn index-of
   [array element]
@@ -72,7 +131,7 @@
   "Same as `predict` but for a matrix of features.
   Returns a vector containing a prediction [0-9] for each example."
   [X weights]
-  (let [m (m/row-count X)
+  (let [m (count (first X))
         [theta1 theta2] weights
         a1 (m/join-along 1 (one-matrix m 1) X)
         z2 (m/mmul a1 (m/transpose theta1))

@@ -5,6 +5,7 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [clojure-csv/clojure-csv "2.0.1"]
-                 [net.mikera/core.matrix "0.62.0"]]
+                 [net.mikera/core.matrix "0.62.0"]
+                 [org.ejml/ejml-all "0.38"]]
   :repl-options {:init-ns mnist-classifier.core}
   :main mnist-classifier.core)
