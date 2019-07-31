@@ -9,13 +9,16 @@
 ; training the network, then at the end, the weights are converted back to
 ; core.matrix for testing.
 
-; Training set features and labels
-(def X
+(def features
   (to-simple-matrix
     (m/matrix (extract-features (read-csv "resources/sample-train.csv")))))
 
-(def y (m/matrix (extract-labels (read-csv "resources/sample-train.csv"))))
-(def Y (to-simple-matrix (class-vector y)))
+(def X (normalise features))
+
+(def labels
+  (m/matrix (extract-labels (read-csv "resources/sample-train.csv"))))
+
+(def Y (to-simple-matrix (class-vector labels)))
 
 ; Numbers of units in each layer
 (def input-layer (.numCols X))
@@ -50,11 +53,12 @@
   Function `cf` must return both a value and a vector of partial derivatives.
   (This minimiser is a naive gradient descent at the moment.)"
   [cf start iters]
+  (println "Training set size: " (.numRows X))
   (let [alpha 1.0]
     (reduce
       (fn [weights i]
         (let [[J gradients] (cf weights)]
-          (println "Iteration" i "cost:" J)
+          (println "Iteration" (inc i) "\tCost:" (round J 5))
           (descend weights gradients alpha)))
       start
       (range iters))))

@@ -10,6 +10,7 @@
 (def y-test (m/matrix (extract-labels (read-csv "resources/sample-test.csv"))))
 
 (def accuracy
+  "Accuracy of network predictions"
   (let [m (count y-test)
         predictions (predict-all X-test weights)
         results (map = predictions y-test)
@@ -19,5 +20,11 @@
 
 (defn -main
   [& args]
-  (println "Accuracy: " accuracy))
+  (println "Accuracy: " (round (* accuracy 100) 1) "%")
+  (doseq [i (range 100)]
+    (let [x (m/get-row X-test i)]
+      (display (to-simple-matrix x))
+      (println "Prediction: " (predict x weights))
+      (println "Press any key for next prediction. (C-c to quit.)")
+      (read-line))))
 

@@ -25,10 +25,24 @@
   [data]
   (mapv to-int-array (map #(drop 1 %) data)))
 
+(defn normalise
+  "Normalises each value in matrix and returns new matrix.
+  Note: only works for matrices with positive values."
+  [sm]
+  (let [maximum (.elementMaxAbs sm)
+        minimum (.elementMinAbs sm)]
+    (.divide sm (- maximum minimum))))
+
 (defn get-rand
   "Returns a random value between -epsilon and +epsilon."
   [epsilon]
   (- (* (rand) 2 epsilon) epsilon))
+
+(defn round
+  "Rounds to `precision` significant figures."
+  [n precision]
+  (let [factor (Math/pow 10. precision)]
+    (/ (Math/floor (* n factor)) factor)))
 
 (defn init-weights
   "Initialise weights for layer.
@@ -56,13 +70,19 @@
   [c-matrix]
   (def s-matrix
     (if (m/matrix? c-matrix)
-       (SimpleMatrix. (first (m/shape c-matrix))
-                      (second (m/shape c-matrix)))
-       (SimpleMatrix. 1 (first (m/shape c-matrix)))))
+       (SimpleMatrix. (m/row-count c-matrix)
+                      (m/column-count c-matrix))
+       (SimpleMatrix. 1
+                      (m/row-count c-matrix))))
 
-  (doseq [x (range (.numRows s-matrix))
-          y (range (.numCols s-matrix))]
-    (.set s-matrix x y (m/select c-matrix x y)))
+  (if (m/matrix? c-matrix)
+    (doseq [r (range (.numRows s-matrix))
+            c (range (.numCols s-matrix))]
+      (.set s-matrix r c (m/select c-matrix r c)))
+
+    (doseq [c (range (.numCols s-matrix))]
+      (.set s-matrix 0 c (m/select c-matrix c 0))))
+
   s-matrix)
 
 (defn to-core-matrix
@@ -81,16 +101,12 @@
 (defn drop-first-column
   "Returns a new SimpleMatrix without the first column."
   [sm]
-  (.extractMatrix sm
-                  0 (.numRows sm)
-                  1 (.numCols sm)))
+  (.cols sm 1 SimpleMatrix/END))
 
 (defn take-first-column
   "Returns a new SimpleMatrix made from the first column of the input matrix."
   [sm]
-  (.extractMatrix sm
-                  0 (.numRows sm)
-                  0 1))
+  (.cols sm 0 1))
 
 (defn class-vector
   "Turns each integer i in vector y into a zero-filled vector with element i
@@ -139,6 +155,13 @@
         z3 (m/mmul a2 (m/transpose theta2))
         a3 (m/logistic z3)]
     (mapv index-of a3 (mapv m/emax a3))))
+
+(defn display
+  "Display the training example in the console."
+  [m]
+  (doseq [y (range (.numCols m))]
+    (if (and (= (rem y 28) 0) (not= y 0)) (println))
+    (if (> (.get m 0 y) 0.5) (print "o") (print "."))))
 
 (defn now
   []
